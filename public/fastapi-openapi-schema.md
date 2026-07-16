@@ -7,7 +7,7 @@ tags:
   - API設計
   - pydantic
 private: false
-updated_at: '2026-07-16T22:18:35+09:00'
+updated_at: '2026-07-16T22:28:51+09:00'
 id: 14dbaa95c5ee734703a7
 organization_url_name: null
 slide: false
@@ -15,7 +15,6 @@ ignorePublish: false
 posting_campaign_uuid: null
 agreed_posting_campaign_term: false
 ---
-# FastAPIのレスポンス定義を見直してOpenAPIスキーマとのズレを減らした話
 
 ## はじめに
 
@@ -90,17 +89,68 @@ class ArticleResponse(BaseModel):
     summary: str | None = None
 ```
 
-この場合、`summary` は省略可能かつ `None` も許容されます。
-
-一方で、レスポンスに必ず `summary` キーを含めたい場合は、実装側で明示的に `None` を返すようにします。
+この定義では、Pydanticモデルを生成するときに `summary` を省略できます。また、値として `None` も許容されます。
 
 ```python
-return ArticleResponse(
-    id=1,
-    title="FastAPI example",
-    summary=None,
-)
+ArticleResponse(id=1, title="FastAPI example")
+ArticleResponse(id=1, title="FastAPI example", summary=None)
+ArticleResponse(id=1, title="FastAPI example", summary="概要です")
 ```
+
+ただし、「Pydanticモデル生成時に省略できること」と「FastAPIのレスポンスJSONでキーが省略されること」は別です。
+
+通常、次のように返すと、
+
+```python
+return ArticleResponse(id=1, title="FastAPI example")
+```
+
+レスポンスには `summary: null` が含まれます。
+
+```json
+{
+  "id": 1,
+  "title": "FastAPI example",
+  "summary": null
+}
+```
+
+一方で、FastAPI側で `response_model_exclude_none=True` を指定すると、`None` のフィールドはレスポンスから除外されます。
+
+```python
+@app.get(
+    "/articles/{article_id}",
+    response_model=ArticleResponse,
+    response_model_exclude_none=True,
+)
+def get_article(article_id: int):
+    return ArticleResponse(id=article_id, title="FastAPI example")
+```
+
+この場合、レスポンスは次のようになります。
+
+```json
+{
+  "id": 1,
+  "title": "FastAPI example"
+}
+```
+
+なお、`response_model_exclude_none=True` はPydanticモデル側ではなく、FastAPIのエンドポイント側に指定する設定です。FastAPIが `response_model` を使ってレスポンスをシリアライズするときに、`None` のフィールドを除外します。
+
+Pydanticモデルを直接dict化するときに同じような制御をしたい場合は、`model_dump(exclude_none=True)` を使います。
+
+```python
+article = ArticleResponse(id=1, title="FastAPI example")
+
+article.model_dump()
+# {"id": 1, "title": "FastAPI example", "summary": None}
+
+article.model_dump(exclude_none=True)
+# {"id": 1, "title": "FastAPI example"}
+```
+
+整理すると、FastAPIのレスポンス全体で制御したい場合は `response_model_exclude_none=True`、Pydanticモデルをdict化するときに制御したい場合は `model_dump(exclude_none=True)` を使います。
 
 フロントエンド側では、キーが存在しないのか、値が `null` なのかで扱いが変わることがあります。  
 APIの契約としてどちらを許容するのかを決めておくことが重要です。
