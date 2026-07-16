@@ -1,13 +1,11 @@
 ---
 title: APIスキーマから型を生成してフロントエンド開発を安全にする
 tags:
-  - TypeScript
   - フロントエンド
-  - React
   - 型安全
   - OpenAPI
 private: false
-updated_at: '2026-07-16T09:48:15+09:00'
+updated_at: '2026-07-16T21:51:37+09:00'
 id: ee440b4b6ef80dfe9e77
 organization_url_name: null
 slide: false
